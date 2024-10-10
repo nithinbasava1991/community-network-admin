@@ -1,0 +1,717 @@
+import React, { useEffect, useState } from "react";
+import AppBarComponent from "../../Components/AppBarComponent";
+import DrawerComponent from "../../Components/DrawerComponent";
+import {
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CssBaseline,
+  IconButton,
+  Stack,
+  Typography,
+} from "@mui/material";
+import { emphasize, styled } from "@mui/material/styles";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Chip from "@mui/material/Chip";
+import HomeIcon from "@mui/icons-material/Home";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import AddIcon from "@mui/icons-material/Add";
+import TextField from "@mui/material/TextField";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import { DataGrid } from "@mui/x-data-grid";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import axios from "axios";
+import Swal from "sweetalert2";
+import {
+  addSuccessStory,
+  deleteSuccessStory,
+  fetchSuccessStory,
+  getSuccessStoryId,
+  updatedSuccessStory,
+} from "../../ApiComponents/SuccessStoryApi";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import Footer from "../../Components/Footer";
+import { BASE_URL } from "../../BaseUrl";
+
+const StyledBreadcrumb = styled(Chip)(({ theme }) => {
+  const backgroundColor =
+    theme.palette.mode === "light"
+      ? theme.palette.grey[100]
+      : theme.palette.grey[800];
+  return {
+    backgroundColor,
+    height: theme.spacing(3),
+    color: theme.palette.text.primary,
+    fontWeight: theme.typography.fontWeightRegular,
+    "&:hover, &:focus": {
+      backgroundColor: emphasize(backgroundColor, 0.06),
+    },
+    "&:active": {
+      boxShadow: theme.shadows[1],
+      backgroundColor: emphasize(backgroundColor, 0.12),
+    },
+  };
+});
+
+function handleClick(event) {
+  event.preventDefault();
+  console.info("You clicked a breadcrumb.");
+}
+
+//!file uplaod
+const VisuallyHiddenInput = styled("input")({
+  clip: "rect(0 0 0 0)",
+  clipPath: "inset(50%)",
+  height: 1,
+  overflow: "hidden",
+  position: "absolute",
+  bottom: 0,
+  left: 0,
+  whiteSpace: "nowrap",
+  width: 1,
+});
+
+const SuccessStory = () => {
+  //!Appbar and Drawer
+  const [open, setOpen] = useState(false);
+
+  const handleDrawerOpen = () => {
+    setOpen(true);
+  };
+
+  const handleDrawerClose = () => {
+    setOpen(false);
+  };
+  //!dialog
+  const [openDialog, setOpenDialog] = useState(false);
+
+  const handleCloseDialog = () => {
+    // Reset form fields and file state
+    setUserdata({
+      successstoryName: "",
+      description: "",
+    });
+    setFile(null);
+    // Reset successstoryId when closing the dialog
+    setSucessStoryId(undefined);
+    // Close the dialog
+    setOpenDialog(false);
+  };
+  
+
+  const handleOpenDialog = () => {
+    setOpenDialog(true);
+  };
+
+  const ImageUrl =
+    `${BASE_URL}/file/downloadFile/?filePath=`;
+
+  const commonMarginStyle = {
+    marginLeft: open ? "240px" : "0",
+    "@media (max-width: 600px)": {
+      marginLeft: open ? "120px" : "0",
+    },
+    "@media (min-width: 601px) and (max-width: 960px)": {
+      marginLeft: open ? "40px" : "0",
+    },
+    "@media (min-width: 961px) and (max-width: 1280px)": {
+      marginLeft: open ? "60px" : "0",
+    },
+  };
+
+  //! Tokens and Headers
+  const user = JSON.parse(sessionStorage.getItem("user"));
+
+  const headers = {
+    "Content-type": "application/json",
+    Authorization: "Bearer " + user.accessToken,
+  };
+
+  //Todo:file
+  const [file, setFile] = useState(null);
+  const [photoName, setPhotoName] = useState("");
+
+  const handleFileChange = (event) => {
+    const selectedFile = event.target.files[0];
+    setFile(selectedFile);
+    setPhotoName(selectedFile ? selectedFile.name : ""); 
+  };
+  
+
+  const handleFileUpload = async () => {
+    if (!file) {
+      Swal.fire({
+        target: document.getElementById("your-dialog-id"),
+        icon: "error",
+        title: "Oops...",
+        text: "Please select a file before uploading.",
+      });
+      return;
+    }
+  
+    const formData = new FormData();
+    formData.append("file", file);
+  
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/file/uploadFile`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: "Bearer " + user.accessToken,
+          },
+        }
+      );
+  
+      console.log("File upload successful:", response.data);
+  
+      if (response.status === 200) {
+        const fileName = response.data.fileName;
+  
+        // Update state or perform any necessary actions with the file name
+        setPhotoName(fileName);
+  
+        Swal.fire({
+          target: document.getElementById("your-dialog-id"),
+          icon: "success",
+          title: response.data.message,
+        });
+      } else {
+        console.error("Unexpected status code:", response.status);
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+    }
+  };
+  
+
+  // ...
+
+  const [userdata, setUserdata] = useState({
+    successstoryName: "",
+    description: "",
+  });
+
+  // State for field errors
+  const [errors, setErrors] = useState({
+    successstoryName: "",
+    description: "",
+  });
+
+  // Validation function
+  const validateForm = () => {
+    let isValid = true;
+    const newErrors = {};
+
+    if (!userdata.successstoryName.trim()) {
+      newErrors.successstoryName = "Success Story Name is required";
+      isValid = false;
+    }
+
+    if (!userdata.description.trim()) {
+      newErrors.description = "Description is required";
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+
+  // Update changehandler function to set user input in state
+  const changehandler = (e) => {
+    const { name, value } = e.target;
+
+    // Clear the error for the changed field
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: "",
+    }));
+
+    setUserdata((prevData) => ({
+      ...prevData,
+      [name]: value,
+    
+    }));
+  };
+
+  //todo ==> POST  SuccessStory DATA
+  const handlePostSubmit = async (event) => {
+    event.preventDefault();
+  
+    // Validate form data here if needed
+  
+    // Construct the JSON payload
+    const payload = {
+      createdBy: {
+        userId: user.userId // Assuming user.userId is available
+      },
+      description: userdata.description,
+      photoName: photoName,
+      successstoryName: userdata.successstoryName
+    };
+  
+    // Example of logging the payload
+    console.log("Form data to submit:", payload);
+  
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${user.accessToken}`,
+      };
+  
+      await addSuccessStory(payload, headers);
+  
+      //!need not to refersh the pages
+      fetchSuccessStoryData();
+      
+      // Handle success
+      Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Success story added successfully.",
+      });
+  
+      
+      // Optionally, reset form fields or perform other actions
+      handleCloseDialog();
+  
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      // Handle error (e.g., show an error message)
+      Swal.fire({
+        icon: "error",
+        title: "Oops...",
+        text: "Failed to add success story. Please try again later.",
+      });
+    }
+  };
+  
+ 
+  
+
+
+
+  
+
+  //todo ==> GET SuccessStory Data
+  const [sucessstorys, setSucessstorys] = useState([]);
+  // Fetch data and update rows
+  useEffect(() => {
+    fetchSuccessStoryData();
+  }, []);
+
+  const fetchSuccessStoryData = async () => {
+    try {
+      const successstoryData = await fetchSuccessStory(headers); // Assuming fetchAdvertise function is asynchronous
+      const mappedSuccessstoryData = successstoryData.data.content.map(
+        (successstoryItem) => ({
+          ...successstoryItem,
+          id: successstoryItem.successstoryId,
+        })
+      );
+
+      setSucessstorys(mappedSuccessstoryData);
+    } catch (error) {
+      console.error("Error fetching advertisement data:", error);
+    }
+  };
+
+  const columns = [
+    { field: "id", headerName: "ID", width: 70 },
+    {
+      field: "successstoryName",
+      headerName: "successstoryName",
+      width: 200,
+    },
+    { field: "description", headerName: "Description", width: 200 },
+    {
+      field: "photoPath",
+      headerName: "File Path",
+      width: 200,
+      renderCell: (params) =>
+        params.row.photoPath === null ? (
+          "NO IMAGE FOUND"
+        ) : (
+          <img
+            src={ImageUrl + params.row.photoPath}
+            alt={params.row.photoName}
+            style={{ width: 100, height: 50 }}
+          />
+        ),
+    },
+    {
+      field: "createdBy",
+      headerName: "Created By",
+      width: 150,
+      renderCell: (params) => (
+        <div>
+          {params.row.createdBy ? params.row.createdBy.userName : "N/A"}
+        </div>
+      ),
+    },
+    {
+      field: "updatedBy",
+      headerName: "Updated By",
+      width: 150,
+      renderCell: (params) => (
+        <div>
+          {params.row.updatedBy ? params.row.updatedBy.userName : "N/A"}
+        </div>
+      ),
+    },
+    {
+      field: "insertedDate",
+      headerName: "Inserted Date",
+      width: 150,
+      valueGetter: (params) => {
+        const date = params.row.insertedDate
+          ? new Date(params.row.insertedDate)
+          : null;
+        return date ? date.toLocaleDateString() : "N/A";
+      },
+    },
+    {
+      field: "updatedDate",
+      headerName: "updatedDate",
+      width: 150,
+      valueGetter: (params) => {
+        const date = params.row.updatedDate
+          ? new Date(params.row.updatedDate)
+          : null;
+        return date ? date.toLocaleDateString() : "N/A";
+      },
+    },
+    {
+      field: "edit",
+      headerName: "Edit",
+      width: 80,
+      renderCell: (params) => (
+        <IconButton color="primary" onClick={() => handleEdit(params.row.id)}>
+          <EditIcon />
+        </IconButton>
+      ),
+    },
+    {
+      field: "delete",
+      headerName: "Delete",
+      width: 100,
+      renderCell: (params) => (
+        <IconButton
+          color="secondary"
+          onClick={() => handleDelete(params.row.id)}
+        >
+          <DeleteIcon />
+        </IconButton>
+      ),
+    },
+  ];
+
+  //todo:get by id
+  const [successstoryId, setSucessStoryId] = useState();
+  const handleEdit = async (id) => {
+    console.log(`Edit button clicked for ID: ${id}`);
+    try {
+      const res = await getSuccessStoryId(id, headers);
+      console.log(res);
+      let det = res.data;
+      console.log(det);
+      setSucessStoryId(det.successstoryId);
+      setUserdata({
+        successstoryName: det.successstoryName,
+        description: det.description,
+        photoName:det.photoName
+      });
+
+      // Set the file state with the file name for display
+    setFile({ name: det.photoName });
+
+      // Open the dialog after fetching the data
+      setOpenDialog(true);
+    } catch (error) {
+      console.error("Error fetching advertisement by ID:", error);
+      // Handle error, e.g., show an error message to the user
+    }
+  };
+
+  // Todo:handleUpdate
+const handleUpdateSubmit = async (event) => {
+  event.preventDefault();
+  
+  try {
+    const dataToSend = {
+      successstoryId: successstoryId,
+      successstoryName: userdata.successstoryName,
+      description: userdata.description,
+      updatedBy: { userId: user.userId },
+      photoName: userdata.photoName, // Replace fileName with photoName
+    };
+
+    // Check if a new file is selected
+    if (file) {
+      // Upload the new file
+      await handleFileUpload();
+      // Update filePath in dataToSend with the new fileName
+      dataToSend.photoPath = userdata.photoName;
+    } else if (!userdata.photoName) {
+      // No new file selected and the old file was null
+      // Handle this case based on your requirements
+      // For example, you could prompt the user to select a file
+      console.log("No file selected for upload");
+      return; // Exit early since no file is selected
+    }
+
+    // Assuming you have a function named `updateSuccessStory` for updating success stories
+    await updatedSuccessStory(dataToSend, headers);
+
+    // Fetch success story data after the update
+    fetchSuccessStoryData();
+
+    // Open the dialog after fetching the data
+    setOpenDialog(false);
+
+    // Reset userData when closing the dialog
+    setUserdata({
+      successstoryName: "",
+      description: "",
+    });
+
+    // Reset successstoryId when closing the dialog
+    setSucessStoryId(undefined);
+
+    // Reset the file state back to null
+    setFile(null);
+
+  } catch (error) {
+    console.error("Error updating success story:", error);
+    // Handle error, e.g., show an error message to the user
+  }
+};
+
+  
+//Todo delete
+const handleDelete = async (id) => {
+  try {
+    // Call deleteSuccessStory and wait for the result
+    const result = await deleteSuccessStory(id, headers);
+    
+    if (result) {
+      // If deletion is successful, optimistically update the state
+      setSucessstorys((prevStories) => prevStories.filter((story) => story.id !== id));
+      
+      // Fetch updated data from the server
+      await fetchSuccessStoryData();
+    } else {
+      // Handle if the user cancels the deletion
+      console.log('Deletion canceled by the user');
+    }
+  } catch (error) {
+    console.error('Error during deletion:', error);
+    // Optionally, re-fetch data to ensure the table is consistent
+    await fetchSuccessStoryData();
+  }
+};
+
+
+  return (
+    <>
+    <div style={{backgroundColor:"#EEEEEE"}}>
+    <Box sx={{ display: "flex", flexDirection: "column" }}>
+        <CssBaseline />
+        <AppBarComponent open={open} handleDrawerOpen={handleDrawerOpen} />
+        <DrawerComponent open={open} handleDrawerClose={handleDrawerClose} />
+
+        <Box
+          component="section"
+          sx={{
+            flexGrow: 1,
+            transition: "margin-left 225ms cubic-bezier(0.4, 0, 0.6, 1) 0ms",
+            marginLeft: open ? "200px" : "0",
+            "@media (max-width: 600px)": {
+              marginLeft: open ? "120px" : "0",
+            },
+          }}
+        >
+          <div style={{ marginLeft: "70px", marginTop: "80px" }}>
+            <div role="presentation" onClick={handleClick}>
+              <Breadcrumbs aria-label="breadcrumb">
+                <StyledBreadcrumb
+                  component="a"
+                  href="#"
+                  label="Dashboard"
+                  icon={<HomeIcon fontSize="small" />}
+                />
+                <StyledBreadcrumb
+                  component="a"
+                  href="#"
+                  label="Advertisement"
+                />
+                <StyledBreadcrumb
+                  label="successstory"
+                  deleteIcon={<ExpandMoreIcon />}
+                  onDelete={handleClick}
+                />
+              </Breadcrumbs>
+            </div>
+
+            <br />
+            <div>
+              <Card
+                sx={{
+                  minWidth: 275,
+                  boxShadow: "10px 10px 5px 0px rgba(0,0,0,0.75)",
+                }}
+              >
+                <CardContent>
+                  <Stack direction="row">
+                    <Button variant="contained" onClick={handleOpenDialog}>
+                      <AddIcon />
+                      Add SuccessStory
+                    </Button>
+                    <Dialog
+                      open={openDialog || successstoryId !== undefined}
+                      onClose={handleCloseDialog}
+                      PaperProps={{
+                        component: "form",
+                      }}
+                      id="your-dialog-id"
+                    >
+                      <DialogTitle> {successstoryId !== undefined ? "Edit SuccessStory" : "Add SuccessStory"}</DialogTitle>
+                      <DialogContent>
+                        <TextField
+                          autoFocus
+                          required
+                          margin="dense"
+                          id="successstoryName"
+                          name="successstoryName"
+                          label="Success Story Name"
+                          type="text"
+                          fullWidth
+                          variant="standard"
+                          value={userdata.successstoryName}
+                          onChange={(e) => {
+                            changehandler(e);
+                          }}
+                          error={!!errors.successstoryName}
+                          helperText={errors.successstoryName}
+                        />
+
+                        <TextField
+                          autoFocus
+                          required
+                          margin="dense"
+                          id="description"
+                          name="description"
+                          label="Description"
+                          type="text"
+                          fullWidth
+                          variant="standard"
+                          value={userdata.description}
+                          onChange={(e) => {
+                            changehandler(e);
+                          }}
+                          error={!!errors.description}
+                          helperText={errors.description}
+                        />
+
+                        <br />
+                        <br />
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                          {/* File input and upload button */}
+                          <input
+                            accept="image/*"
+                            id="contained-button-file"
+                            type="file"
+                            style={{ display: "none" }}
+                            onChange={handleFileChange}
+                          />
+                          <label htmlFor="contained-button-file">
+                            <Button
+                              variant="contained"
+                              color="primary"
+                              component="span"
+                              startIcon={<CloudUploadIcon />}
+                            >
+                              Upload
+                            </Button>
+                          </label>
+                          {/* Display file name */}
+                          <span>
+                            {file ? userdata.photoName : "No file selected"}
+                          </span>
+                          {/* Button to submit file */}
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={handleFileUpload}
+                            disabled={!file}
+                          >
+                            File Submit
+                          </Button>
+                        </Stack>
+                      </DialogContent>
+                      <DialogActions>
+                        <Button variant="contained" onClick={handleCloseDialog}>
+                          Cancel
+                        </Button>
+                        {successstoryId ? (
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            onClick={handleUpdateSubmit}
+                          >
+                            Update
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            onClick={handlePostSubmit}
+                          >
+                            Submit
+                          </Button>
+                        )}
+                      </DialogActions>
+                    </Dialog>
+                  </Stack>
+                  <br />
+                  <div>
+                    <div style={{ height: 400, width: "100%" }}>
+                      <DataGrid
+                        rows={sucessstorys}
+                        columns={columns}
+                        initialState={{
+                          pagination: {
+                            paginationModel: { page: 0, pageSize: 10 },
+                          },
+                        }}
+                        pageSizeOptions={[10,50,100]}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </Box>
+      </Box>
+      <Box
+          sx={{
+            transition: "margin-left 225ms cubic-bezier(0.4, 0, 0.6, 1) 0ms",
+            ...commonMarginStyle,
+          }}
+        >
+          <Footer/>
+        </Box>
+    </div>
+      
+    </>
+  );
+};
+
+export default SuccessStory;
